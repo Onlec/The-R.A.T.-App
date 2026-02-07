@@ -469,7 +469,7 @@ if uploaded_file:
             fig_ext, ax_ext = plt.subplots()
             w_fit = np.logspace(np.log10(m_df['w_s'].min())-2, np.log10(m_df['w_s'].max()), 100)
             
-            ax_ext.loglog(m_df['w_s'], ma_df['eta_s'], 'ko', alpha=0.3, label='Meetdata')
+            ax_ext.loglog(m_df['w_s'], m_df['eta_s'], 'ko', alpha=0.3, label='Meetdata')
             if not np.isnan(eta0):
                 ax_ext.loglog(w_fit, cross_model(w_fit, *cross_params), 'r--', label='Cross Model Fit')
                 ax_ext.axhline(eta0, color='red', linestyle=':', label=f'η₀ = {eta0:.1e}')
