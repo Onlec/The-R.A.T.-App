@@ -179,11 +179,10 @@ if uploaded_file:
             ax3.grid(True, which="both", alpha=0.2)
             ax3.legend(loc='lower right', fontsize=8, ncol=2)
             st.pyplot(fig3)
-
         with tab3:
-            st.subheader("Arrhenius & Viscositeit Analyse")
+            st.subheader("🧬 Verfijnde Arrhenius Analyse")
             
-            # 1. Kies een frequentie voor de viscositeitsplot
+            # 1. Frequentie selectie voor viscositeit
             all_omegas = sorted(df['omega'].unique())
             target_omega = st.select_slider(
                 "Selecteer frequentie voor viscositeitsanalyse (rad/s)", 
@@ -191,11 +190,12 @@ if uploaded_file:
                 value=all_omegas[len(all_omegas)//2]
             )
 
-            # Data voorbereiden
+            # Data voorbereiden voor berekening
             t_kelvin = np.array([t + 273.15 for t in selected_temps])
             inv_t = 1/t_kelvin
             log_at = np.array([st.session_state.shifts[t] for t in selected_temps])
             
+            # Viscositeit berekenen (log eta*)
             viscosities = []
             for t in selected_temps:
                 d_t = df[(df['T_group'] == t)]
@@ -203,43 +203,63 @@ if uploaded_file:
                 row = d_t.loc[idx]
                 g_star = np.sqrt(row['Gp']**2 + row['Gpp']**2)
                 viscosities.append(np.log10(g_star / row['omega']))
-            
             log_eta = np.array(viscosities)
 
             if len(selected_temps) > 2:
+                # Lineaire Regressie
                 coeffs_at = np.polyfit(inv_t, log_at, 1)
-                coeffs_eta = np.polyfit(inv_t, log_eta, 1)
-                
-                # R2 voor log_at
                 p_at = np.poly1d(coeffs_at)
+                
+                # Statistiek: R-kwadraat berekenen
                 y_resid = log_at - p_at(inv_t)
                 r2 = 1 - (np.sum(y_resid**2) / np.sum((log_at - np.mean(log_at))**2))
                 
+                # Ea berekening: Ea = helling * R * ln(10)
+                # Let op: de helling is positief of negatief afhankelijk van 1/T trend
                 ea = (coeffs_at[0] * 8.314 * np.log(10)) / 1000
                 
-                col_left, col_right = st.columns(2)
-                with col_left:
-                    st.markdown("**1. Shift Factor Fit (Ea)**")
-                    fig4, ax4 = plt.subplots(figsize=(6, 4))
-                    ax4.plot(inv_t, log_at, 'o', color='#FF4B4B', label='Meetdata')
-                    ax4.plot(inv_t, np.polyval(coeffs_at, inv_t), 'k--', alpha=0.6, label=f'R² = {r2:.4f}')
-                    ax4.set_xlabel("1/T (1/K)")
-                    ax4.set_ylabel("log(aT)")
+                # Layout
+                col_graph, col_stats = st.columns([2, 1])
+                
+                with col_graph:
+                    fig4, ax4 = plt.subplots(figsize=(8, 5))
+                    ax4.scatter(inv_t, log_at, color='#FF4B4B', s=80, label='Meetpunten ($a_T$)', zorder=3)
+                    ax4.plot(inv_t, p_at(inv_t), 'k--', alpha=0.6, label=f'Lineaire Fit ($R^2={r2:.4f}$)')
+                    ax4.set_xlabel("1/T (1/K)", fontsize=10)
+                    ax4.set_ylabel("log($a_T$)", fontsize=10)
                     ax4.legend()
+                    ax4.grid(True, alpha=0.2)
                     st.pyplot(fig4)
-                    st.metric("Ea", f"{abs(ea):.1f} kJ/mol", delta=f"R²: {r2:.4f}")
 
-                with col_right:
-                    st.markdown(f"**2. Viscositeit @ {target_omega:.1f} rad/s**")
-                    fig5, ax5 = plt.subplots(figsize=(6, 4))
-                    ax5.plot(inv_t, log_eta, 's', color='#1f77b4')
-                    ax5.plot(inv_t, np.polyval(coeffs_eta, inv_t), 'k--', alpha=0.6)
-                    ax5.set_xlabel("1/T (1/K)")
-                    ax5.set_ylabel("log(η*) [Pa·s]")
-                    st.pyplot(fig5)
-                    st.info(f"Viscositeit helling: {coeffs_eta[0]:.0f}")
+                with col_stats:
+                    st.metric("Activeringsenergie ($E_a$)", f"{abs(ea):.1f} kJ/mol")
+                    
+                    # Kwaliteitscheck op basis van R^2
+                    if r2 > 0.99:
+                        st.success("✅ Uitstekende fit: Het materiaal volgt de Arrhenius-wet perfect.")
+                    elif r2 > 0.95:
+                        st.warning("⚠️ Matige fit: Er is een lichte afwijking. Mogelijk nadert het materiaal de smelt- of glasovergang.")
+                    else:
+                        st.error("❌ Slechte fit: Arrhenius is hier niet geldig. Overweeg het WLF-model of controleer de vGP-plot op structuurveranderingen.")
+                    
+                    st.write("---")
+                    st.write("**Viscositeit trend:**")
+                    # Helling van viscositeit geeft ook een indicatie van Ea_flow
+                    coeffs_eta = np.polyfit(inv_t, log_eta, 1)
+                    ea_flow = (coeffs_eta[0] * 8.314 * np.log(10)) / 1000
+                    st.write(f"Flow $E_a$ via $\eta^*$: **{abs(ea_flow):.1f} kJ/mol**")
+
+                # Extra uitleg voor de gebruiker
+                with st.expander("Hoe wordt de Activeringsenergie berekend?"):
+                    st.write("""
+                    De activeringsenergie ($E_a$) wordt berekend met de Arrhenius-vergelijking:
+                    $$ \log(a_T) = \frac{E_a}{2.303 \cdot R} \left( \frac{1}{T} - \frac{1}{T_{ref}} \right) $$
+                    
+                    * Een **hoge $E_a$** betekent dat de viscositeit van de TPU erg gevoelig is voor temperatuurveranderingen.
+                    * Een **lage $E_a$** betekent dat de TPU stabiel blijft over een groter temperatuurbereik.
+                    """)
             else:
-                st.warning("Selecteer minimaal 3 temperaturen.")
+                st.info("Selecteer minimaal 3 temperaturen in de zijbalk om de statistische analyse te starten.")
     else:
         st.error("Geen geldige data gevonden.")
 else:
