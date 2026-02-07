@@ -102,11 +102,43 @@ if uploaded_file:
         for t in selected_temps:
             st.session_state.shifts[t] = st.sidebar.slider(f"{int(t)}°C", -15.0, 15.0, float(st.session_state.shifts[t]), 0.1, key=f"{t}_{st.session_state.reset_id}")
 
-        # --- DATA PREP ---
         color_map = plt.get_cmap(cmap_opt)
         colors = color_map(np.linspace(0, 0.9, len(selected_temps)))
         
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Master Curve", "🧪 Structuur (vGP)", "🧬 Thermisch (Ea)", "🔬 TTS Validatie", "💾 Smooth Export"])
+        # --- TAB DEFINITIES ---
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            "📈 Master Curve", "🧪 Structuur (vGP)", "🧬 Thermisch (Ea)", 
+            "🔬 TTS Validatie", "💾 Smooth Export", "📊 Summary Dashboard"
+        ])
+
+        # Bereken crossovers vooraf voor gebruik in Dashboard en Tab 4
+        co_data = []
+        for t in selected_temps:
+            d = df[df['T_group'] == t].sort_values('omega')
+            if len(d) > 3:
+                try:
+                    f_diff = interp1d(np.log10(d['omega']), np.log10(d['Gp']) - np.log10(d['Gpp']), bounds_error=False)
+                    w_range = np.logspace(np.log10(d['omega'].min()), np.log10(d['omega'].max()), 500)
+                    diffs = f_diff(np.log10(w_range))
+                    idx_zero = np.nanargmin(np.abs(diffs))
+                    if np.abs(diffs[idx_zero]) < 0.1:
+                        w_co = w_range[idx_zero]
+                        g_co = 10**float(interp1d(np.log10(d['omega']), np.log10(d['Gp']))(np.log10(w_co)))
+                        co_data.append({
+                            "T (°C)": int(t), 
+                            "ω_co (rad/s)": round(w_co, 2), 
+                            "G_co (Pa)": round(g_co, 0),
+                            "λ (s)": round(1/w_co, 4)
+                        })
+                except: pass
+        co_df = pd.DataFrame(co_data)
+
+        # Ea berekening
+        t_k = np.array([t + 273.15 for t in selected_temps])
+        inv_t, log_at = 1/t_k, np.array([st.session_state.shifts[t] for t in selected_temps])
+        slope, intercept = np.polyfit(inv_t, log_at, 1)
+        r_squared = 1 - (np.sum((log_at - (slope*inv_t + intercept))**2) / np.sum((log_at - np.mean(log_at))**2))
+        ea_val = abs(slope * 8.314 * np.log(10) / 1000)
 
         with tab1:
             st.subheader(f"Master Curve bij {ref_temp}°C")
@@ -118,102 +150,100 @@ if uploaded_file:
                     at = 10**st.session_state.shifts[t]
                     ax1.loglog(d['omega']*at, d['Gp'], 'o-', color=color, label=f"{int(t)}°C G'", markersize=4)
                     ax1.loglog(d['omega']*at, d['Gpp'], 'x--', color=color, alpha=0.3, markersize=3)
-                ax1.set_xlabel("ω·aT (rad/s)"); ax1.set_ylabel("Modulus (Pa)"); ax1.legend(ncol=2, fontsize=8); ax1.grid(True, alpha=0.1)
+                ax1.set_xlabel("ω·aT (rad/s)"); ax1.set_ylabel("Modulus (Pa)"); ax1.legend(ncol=2, fontsize=8); ax1.grid(True, which="both", alpha=0.1)
                 st.pyplot(fig1)
             with col_m2:
                 st.write("**Shift Factor Trend**")
-                t_list = sorted([t for t in selected_temps])
-                s_list = [st.session_state.shifts[t] for t in t_list]
-                fig2, ax2 = plt.subplots(); ax2.plot(t_list, s_list, 's-', color='red'); ax2.set_xlabel("T (°C)"); ax2.set_ylabel("log(aT)"); st.pyplot(fig2)
+                fig2, ax2 = plt.subplots(); ax2.plot(sorted(selected_temps), [st.session_state.shifts[t] for t in sorted(selected_temps)], 's-', color='red'); ax2.set_ylabel("log(aT)"); st.pyplot(fig2)
 
         with tab2:
-            st.subheader("Van Gurp-Palmen (vGP) Analyse")
-            st.info("💡 Thermorheologische eenvoud: Liggen alle curves op één lijn? Zo ja, dan is de structuur temperatuur-onafhankelijk.")
+            st.subheader("Van Gurp-Palmen Analyse")
             fig3, ax3 = plt.subplots(figsize=(10, 5))
             for t, color in zip(selected_temps, colors):
-                d = df[df['T_group'] == t]
-                g_star = np.sqrt(d['Gp']**2 + d['Gpp']**2)
-                delta = np.degrees(np.arctan2(d['Gpp'], d['Gp']))
-                ax3.plot(g_star, delta, 'o-', color=color, label=f"{int(t)}°C")
-            ax3.set_xscale('log'); ax3.set_xlabel("|G*| (Pa)"); ax3.set_ylabel("δ (°)"); ax3.grid(True, alpha=0.2); st.pyplot(fig3)
+                d = df[df['T_group'] == t]; g_star = np.sqrt(d['Gp']**2 + d['Gpp']**2); delta = np.degrees(np.arctan2(d['Gpp'], d['Gp']))
+                ax3.plot(g_star, delta, 'o-', color=color)
+            ax3.set_xscale('log'); ax3.set_xlabel("|G*| (Pa)"); ax3.set_ylabel("δ (°)"); st.pyplot(fig3)
 
         with tab3:
-            st.subheader("🧬 Activeringsenergie & ODT")
-            all_omegas = sorted(df['omega'].unique())
-            target_w = st.select_slider("Selecteer ω voor Ea", options=all_omegas, value=all_omegas[len(all_omegas)//2])
-            t_k = np.array([t + 273.15 for t in selected_temps])
-            inv_t, log_at = 1/t_k, np.array([st.session_state.shifts[t] for t in selected_temps])
-            slope, intercept = np.polyfit(inv_t, log_at, 1)
-            ea = abs(slope * 8.314 * np.log(10) / 1000)
-            st.metric("Ea (Shift)", f"{ea:.1f} kJ/mol")
+            st.subheader("🧬 Thermische Analyse")
+            st.metric("Activeringsenergie (Ea)", f"{ea_val:.1f} kJ/mol")
             fig_ea, ax_ea = plt.subplots(); ax_ea.scatter(inv_t, log_at, color='red'); ax_ea.plot(inv_t, slope*inv_t + intercept, 'k--'); st.pyplot(fig_ea)
 
         with tab4:
-            st.subheader("🔬 Geavanceerde TTS Validatie")
-            st.markdown("### 1. Han Plot ($G'$ vs $G''$)")
-            st.markdown("""
-            **Wat je ziet:** Deze plot elimineert de variabele 'temperatuur' en 'frequentie'. 
-            * **Interpretatie voor TPU:** Als de data bij alle temperaturen op één enkele curve valt, is je TPU 'thermorheologisch simpel'. 
-            * **Afwijkingen:** Zie je dat de lijnen bij hogere temperaturen 'wegbuigen'? Dat duidt vaak op het **verlies van microfase-scheiding** of het smelten van hard-segment domeinen. TTS is daar eigenlijk niet meer geldig.
-            """)
-            fig_h, ax_h = plt.subplots(figsize=(8, 5))
-            for t, color in zip(selected_temps, colors):
-                d = df[df['T_group'] == t]
-                ax_h.loglog(d['Gpp'], d['Gp'], 'o', color=color, label=f"{int(t)}°C", alpha=0.7)
-            ax_h.set_xlabel("G'' (Pa)"); ax_h.set_ylabel("G' (Pa)"); ax_h.legend(); ax_h.grid(True, which="both", alpha=0.2)
-            st.pyplot(fig_h)
-
-            st.divider()
-
-            st.markdown("### 2. Cole-Cole Plot ($\eta''$ vs $\eta'$)")
-            st.markdown("""
-            **Interpretatie van de Boog:**
-            * **Symmetrische Halve Cirkel:** Wijst op een zeer nauwe molecuulgewichtsverdeling (monodispers), zoals een Maxwell-model.
-            * **Afgeplatte of Scheve Boog:** Hoe 'platter' of breder de boog, hoe **breder de molecuulgewichtsverdeling (MWD)** van je TPU.
-            * **Uitschieters bij lage η':** Wijst op de aanwezigheid van een elastisch netwerk of ongesmolten deeltjes (hard-segments) die de stroming hinderen.
-            """)
-            fig_c, ax_c = plt.subplots(figsize=(8, 5))
-            for t, color in zip(selected_temps, colors):
-                d = df[df['T_group'] == t]
-                eta_p = d['Gpp'] / d['omega']
-                eta_pp = d['Gp'] / d['omega']
-                ax_c.plot(eta_p, eta_pp, 'o-', color=color, label=f"{int(t)}°C", markersize=4)
-            ax_c.set_xlabel("η' (Pa·s)"); ax_c.set_ylabel("η'' (Pa·s)"); ax_c.legend(); ax_c.grid(True, alpha=0.2)
-            st.pyplot(fig_c)
-
-            st.divider()
-            
-            st.write("**3. Cross-over Punten ($G' = G''$)**")
-            co_list = []
-            for t in selected_temps:
-                d = df[df['T_group'] == t].sort_values('omega')
-                if len(d) > 2:
-                    try:
-                        f_diff = interp1d(np.log10(d['omega']), np.log10(d['Gp']) - np.log10(d['Gpp']), bounds_error=False)
-                        # Zoek nulpunt (waar log(Gp/Gpp) = 0)
-                        w_range = np.logspace(np.log10(d['omega'].min()), np.log10(d['omega'].max()), 500)
-                        diffs = f_diff(np.log10(w_range))
-                        idx_zero = np.nanargmin(np.abs(diffs))
-                        w_co = w_range[idx_zero]
-                        g_co = 10**float(interp1d(np.log10(d['omega']), np.log10(d['Gp']))(np.log10(w_co)))
-                        co_list.append({"T (°C)": int(t), "ω_co (rad/s)": round(w_co, 2), "G_co (Pa)": round(g_co, 0)})
-                    except: pass
-            if co_list: st.table(pd.DataFrame(co_list))
+            st.subheader("🔬 TTS Validatie Checks")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.write("**Han Plot**")
+                fig_h, ax_h = plt.subplots()
+                for t, color in zip(selected_temps, colors):
+                    d = df[df['T_group'] == t]
+                    ax_h.loglog(d['Gpp'], d['Gp'], 'o', color=color, alpha=0.6)
+                st.pyplot(fig_h)
+            with c2:
+                st.write("**Cole-Cole Plot**")
+                fig_c, ax_c = plt.subplots()
+                for t, color in zip(selected_temps, colors):
+                    d = df[df['T_group'] == t]
+                    ax_c.plot(d['Gpp']/d['omega'], d['Gp']/d['omega'], 'o-', color=color)
+                st.pyplot(fig_c)
+            st.write("**Crossover Tabel**")
+            st.table(co_df)
 
         with tab5:
             st.subheader("💾 Smooth Export")
-            m_list = []
-            for t in selected_temps:
-                d = df[df['T_group'] == t].copy()
-                at = 10**st.session_state.shifts[t]
-                d['w_s'] = d['omega'] * at
-                d['eta_s'] = np.sqrt(d['Gp']**2 + d['Gpp']**2) / d['w_s']
-                m_list.append(d)
-            m_df = pd.concat(m_list).sort_values('w_s')
-            s_val = st.slider("Smoothing Sterkte", 0.0, 2.0, 0.4)
+            m_df = pd.concat([df[df['T_group'] == t].assign(w_s=lambda x: x.omega * 10**st.session_state.shifts[t], eta_s=lambda x: np.sqrt(x.Gp**2 + x.Gpp**2)/(x.omega * 10**st.session_state.shifts[t])) for t in selected_temps]).sort_values('w_s')
+            s_val = st.slider("Smoothing", 0.0, 2.0, 0.4)
             log_w, log_eta = np.log10(m_df['w_s']), np.log10(m_df['eta_s'])
             spl = UnivariateSpline(log_w, log_eta, s=s_val)
             w_new = np.logspace(log_w.min(), log_w.max(), 50)
             eta_new = 10**spl(np.log10(w_new))
             fig_s, ax_s = plt.subplots(); ax_s.loglog(m_df['w_s'], m_df['eta_s'], 'k.', alpha=0.1); ax_s.loglog(w_new, eta_new, 'r-'); st.pyplot(fig_s)
             st.download_button("Download CSV", pd.DataFrame({'w': w_new, 'eta': eta_new}).to_csv(index=False).encode('utf-8'))
+
+        with tab6:
+            st.header("📊 TPU Fingerprint Summary")
+            col_s1, col_s2, col_s3 = st.columns(3)
+            
+            with col_s1:
+                st.subheader("🔥 Thermisch")
+                st.metric("Ea (Flow)", f"{ea_val:.1f} kJ/mol")
+                st.write(f"**Fit Kwaliteit (R²):** {r_squared:.4f}")
+                status_ea = "Hoog" if ea_val > 150 else "Normaal" if ea_val > 70 else "Laag"
+                st.caption(f"Temperatuurgevoeligheid is **{status_ea}**.")
+
+            with col_s2:
+                st.subheader("🧬 Structuur")
+                if not co_df.empty:
+                    avg_lambda = co_df['λ (s)'].mean()
+                    st.metric("Gem. Relaxatietijd", f"{avg_lambda:.4e} s")
+                else:
+                    st.write("Geen crossovers gevonden.")
+                simplicity = "Hoog" if r_squared > 0.99 else "Matig" if r_squared > 0.95 else "Laag (Complex)"
+                st.write(f"**TTS Geldigheid:** {simplicity}")
+
+            with col_s3:
+                st.subheader("⚙️ Processing")
+                if not co_df.empty:
+                    st.write(f"**Crossover bereik:**")
+                    st.write(f"{co_df['ω_co (rad/s)'].min()} - {co_df['ω_co (rad/s)'].max()} rad/s")
+                st.write("**Referentie T:**", f"{ref_temp} °C")
+
+            st.divider()
+            st.subheader("📝 Expert Conclusie")
+            
+            # Dynamische conclusie op basis van data
+            if r_squared < 0.95:
+                st.error("⚠️ **Thermorheologische Complexiteit gedetecteerd.** De Han-plot en vGP-plot suggereren dat de TPU structuur verandert binnen dit temperatuurbereik. De Master Curve is een indicatie, geen absolute waarheid.")
+            else:
+                st.success("✅ **TTS is valide.** Het materiaal gedraagt zich als een homogene smelt. De Master Curve kan betrouwbaar worden gebruikt voor simulaties.")
+                
+            if ea_val > 180:
+                st.warning("❗ **Hoge Ea gedetecteerd.** Deze TPU is extreem gevoelig voor temperatuurvariaties tijdens extrusie/spuitgieten. Controleer je heater bands.")
+            
+            st.markdown("### Samenvattingstabel voor Rapportage")
+            summary_table = co_df.copy()
+            summary_table['log(aT)'] = [st.session_state.shifts[t] for t in co_df['T (°C)']]
+            st.dataframe(summary_table, use_container_width=True)
+
+    else: st.error("Geen data.")
+else: st.info("👋 Upload data om te beginnen.")
