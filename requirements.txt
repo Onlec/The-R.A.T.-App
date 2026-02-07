@@ -3,4 +3,4 @@ numpy
 matplotlib
 scipy
 streamlit
-altair<6
+altair==5.5.0
