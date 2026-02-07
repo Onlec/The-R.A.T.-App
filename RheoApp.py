@@ -5,23 +5,17 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d, UnivariateSpline
 
-# --- CONFIGURATIE EN CSS ---
-st.set_page_config(page_title="TPU Rheology Tool", layout="wide")
+# --- CONFIGURATIE ---
+st.set_page_config(page_title="TPU Rheology Expert Tool", layout="wide")
 
-st.markdown(
-    """
+st.markdown("""
     <style>
-    [data-testid="stSidebar"] { min-width: 380px; }
-    .main { background-color: #f8f9fa; }
+    [data-testid="stSidebar"] { min-width: 400px; }
+    .stAlert { font-size: 0.95rem; }
     </style>
-    """,
-    unsafe_allow_html=True
-)
-
-st.title("🧪 TPU Rheology Master Curve Tool")
+    """, unsafe_allow_html=True)
 
 def load_rheo_data(file):
-    """Parser voor Anton Paar CSV data."""
     try:
         file.seek(0)
         raw_bytes = file.read()
@@ -72,33 +66,27 @@ def load_rheo_data(file):
     return df.dropna(subset=['T', 'omega', 'Gp']).query("Gp > 0 and omega > 0")
 
 # --- SIDEBAR ---
-st.sidebar.header("1. Data Import")
-uploaded_file = st.sidebar.file_uploader("Upload Anton Paar CSV", type=['csv', 'txt'])
+st.sidebar.title("🧪 Rheo-Control Panel")
+uploaded_file = st.sidebar.file_uploader("Upload Anton Paar CSV/TXT", type=['csv', 'txt'])
 
 if uploaded_file:
     df = load_rheo_data(uploaded_file)
-    
-    if not df.empty and 'T' in df.columns:
+    if not df.empty:
         df['T_group'] = df['T'].round(0)
         temps = sorted(df['T_group'].unique())
         
-        st.sidebar.header("2. TTS Instellingen")
-        selected_temps = st.sidebar.multiselect("Selecteer temperaturen", temps, default=temps)
+        st.sidebar.header("1. Selectie & Kleur")
+        selected_temps = st.sidebar.multiselect("Temperaturen", temps, default=temps)
+        if not selected_temps: st.stop()
         
-        if not selected_temps:
-            st.warning("Selecteer temperaturen.")
-            st.stop()
-
         ref_temp = st.sidebar.selectbox("Referentie T (°C)", selected_temps, index=len(selected_temps)//2)
+        cmap_opt = st.sidebar.selectbox("Kleurenschema", ["coolwarm", "viridis", "magma", "jet"])
         
-        if 'shifts' not in st.session_state:
-            st.session_state.shifts = {t: 0.0 for t in temps}
-        if 'reset_id' not in st.session_state:
-            st.session_state.reset_id = 0
+        if 'shifts' not in st.session_state: st.session_state.shifts = {t: 0.0 for t in temps}
+        if 'reset_id' not in st.session_state: st.session_state.reset_id = 0
 
-        # --- KNOPPEN: AUTO-ALIGN & RESET ---
         c_auto, c_reset = st.sidebar.columns(2)
-        if c_reset.button("🔄 Reset"):
+        if c_reset.button("🔄 Reset Shifts"):
             for t in temps: st.session_state.shifts[t] = 0.0
             st.session_state.reset_id += 1
             st.rerun()
@@ -117,139 +105,116 @@ if uploaded_file:
             st.session_state.reset_id += 1
             st.rerun()
 
-        st.sidebar.header("3. Handmatige Shift (log aT)")
+        st.sidebar.header("2. Handmatige Fine-tuning")
         for t in selected_temps:
-            st.session_state.shifts[t] = st.sidebar.slider(
-                f"{int(t)}°C", -15.0, 15.0, float(st.session_state.shifts[t]), 
-                0.1, format="%.1f", key=f"slide_{t}_{st.session_state.reset_id}"
-            )
+            st.session_state.shifts[t] = st.sidebar.slider(f"{int(t)}°C", -10.0, 10.0, float(st.session_state.shifts[t]), 0.1, key=f"{t}_{st.session_state.reset_id}")
 
-        # --- DATA VOORBEREIDEN ---
-        color_map = plt.get_cmap("coolwarm")
+        # --- DATA PREP ---
+        color_map = plt.get_cmap(cmap_opt)
         colors = color_map(np.linspace(0, 0.9, len(selected_temps)))
         
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "📈 Master Curve", "🧪 Structuur (vGP)", "🧬 Thermisch (Ea)", "🔬 Check", "💾 Export & Smooth"
-        ])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Master Curve", "🧪 Structuur (vGP)", "🧬 Thermisch (Ea)", "🔬 TTS Validatie", "💾 Smooth Export"])
 
         with tab1:
             st.subheader(f"Master Curve bij {ref_temp}°C")
-            col_graph, col_at = st.columns([2, 1])
-            with col_graph:
+            col_m1, col_m2 = st.columns([2, 1])
+            with col_m1:
                 fig1, ax1 = plt.subplots(figsize=(10, 6))
                 for t, color in zip(selected_temps, colors):
-                    data = df[df['T_group'] == t].copy()
+                    d = df[df['T_group'] == t].copy()
                     at = 10**st.session_state.shifts[t]
-                    ax1.loglog(data['omega']*at, data['Gp'], 'o-', color=color, label=f"{int(t)}°C", markersize=4)
-                    ax1.loglog(data['omega']*at, data['Gpp'], 'x--', color=color, alpha=0.3, markersize=3)
-                ax1.set_xlabel("ω·aT (rad/s)"); ax1.set_ylabel("G', G'' (Pa)"); ax1.legend(ncol=2, fontsize=8); ax1.grid(True, which="both", alpha=0.2)
+                    ax1.loglog(d['omega']*at, d['Gp'], 'o-', color=color, label=f"{int(t)}°C G'", markersize=4)
+                    ax1.loglog(d['omega']*at, d['Gpp'], 'x--', color=color, alpha=0.3, markersize=3)
+                ax1.set_xlabel("ω·aT (rad/s)"); ax1.set_ylabel("Modulus (Pa)"); ax1.legend(ncol=2, fontsize=8); ax1.grid(True, which="both", alpha=0.1)
                 st.pyplot(fig1)
-            with col_at:
-                st.subheader("Shift Factor Trend")
-                fig2, ax2 = plt.subplots(figsize=(5, 7))
+            with col_m2:
+                st.write("**Shift Factor Trend**")
                 t_list = sorted([t for t in selected_temps])
                 s_list = [st.session_state.shifts[t] for t in t_list]
-                ax2.plot(t_list, s_list, 's-', color='#FF4B4B')
-                ax2.axvline(ref_temp, color='black', linestyle='--', alpha=0.5)
-                ax2.set_ylabel("log(aT)"); ax2.set_xlabel("T (°C)"); st.pyplot(fig2)
+                fig2, ax2 = plt.subplots(); ax2.plot(t_list, s_list, 's-', color='red'); ax2.set_xlabel("T (°C)"); ax2.set_ylabel("log(aT)"); st.pyplot(fig2)
+                st.info("💡 Een lineaire trend wijst op Arrhenius gedrag; een sterke kromming op WLF (nabij Tg).")
 
         with tab2:
-            st.subheader("Van Gurp-Palmen Plot")
-            fig3, ax3 = plt.subplots(figsize=(10, 6))
+            st.subheader("Van Gurp-Palmen (vGP) Analyse")
+            st.markdown("> **Interpretatie:** Als de curves bij verschillende temperaturen niet samenvallen in deze plot, is het materiaal **thermorheologisch complex**. Voor TPU betekent dit vaak dat de verhouding tussen harde en zachte segmenten verandert (bijv. door het smelten van hard-segment domeinen).")
+            fig3, ax3 = plt.subplots(figsize=(10, 5))
             for t, color in zip(selected_temps, colors):
                 d = df[df['T_group'] == t]
                 g_star = np.sqrt(d['Gp']**2 + d['Gpp']**2)
                 delta = np.degrees(np.arctan2(d['Gpp'], d['Gp']))
-                ax3.plot(g_star, delta, 'o-', color=color, label=f"{int(t)}°C", markersize=4)
-            ax3.set_xscale('log'); ax3.set_xlabel("|G*| (Pa)"); ax3.set_ylabel("δ (°)"); ax3.grid(True, alpha=0.2); st.pyplot(fig3)
+                ax3.plot(g_star, delta, 'o-', color=color, label=f"{int(t)}°C")
+            ax3.set_xscale('log'); ax3.set_xlabel("|G*| (Pa)"); ax3.set_ylabel("δ (°)"); ax3.set_ylim(0, 95); ax3.grid(True, alpha=0.2); st.pyplot(fig3)
 
         with tab3:
-            st.subheader("🧬 Arrhenius Analyse & Viscositeit Trend")
-            if len(selected_temps) >= 3:
-                all_omegas = sorted(df['omega'].unique())
-                target_omega = st.select_slider("Selecteer frequentie voor analyse (rad/s)", options=all_omegas, value=all_omegas[len(all_omegas)//2])
-                
-                t_kelvin = np.array([t + 273.15 for t in selected_temps])
-                inv_t = 1/t_kelvin
-                log_at = np.array([st.session_state.shifts[t] for t in selected_temps])
-                
-                viscosities = []
-                for t in selected_temps:
-                    d_t = df[df['T_group'] == t]
-                    idx = (d_t['omega'] - target_omega).abs().idxmin()
-                    row = d_t.loc[idx]
-                    viscosities.append(np.log10(np.sqrt(row['Gp']**2 + row['Gpp']**2) / row['omega']))
-
-                c1, c2 = st.columns(2)
-                with c1:
-                    coeffs = np.polyfit(inv_t, log_at, 1)
-                    ea = abs(coeffs[0] * 8.314 * np.log(10) / 1000)
-                    fig_ea, ax_ea = plt.subplots()
-                    ax_ea.scatter(inv_t, log_at, color='red', s=80); ax_ea.plot(inv_t, np.poly1d(coeffs)(inv_t), 'k--')
-                    ax_ea.set_xlabel("1/T (1/K)"); ax_ea.set_ylabel("log(aT)"); st.pyplot(fig_ea)
-                    st.metric("Ea (via aT)", f"{ea:.1f} kJ/mol")
-                with c2:
-                    coeffs_v = np.polyfit(inv_t, viscosities, 1)
-                    ea_v = abs(coeffs_v[0] * 8.314 * np.log(10) / 1000)
-                    fig_v, ax_v = plt.subplots()
-                    ax_v.scatter(inv_t, viscosities, color='blue', s=80); ax_v.plot(inv_t, np.poly1d(coeffs_v)(inv_t), 'k--')
-                    ax_v.set_xlabel("1/T (1/K)"); ax_v.set_ylabel("log(η*)"); st.pyplot(fig_v)
-                    st.metric("Ea (via η*)", f"{ea_v:.1f} kJ/mol")
+            st.subheader("🧬 Activeringsenergie ($E_a$)")
+            all_omegas = sorted(df['omega'].unique())
+            target_w = st.select_slider("Selecteer frequentie voor analyse (rad/s)", options=all_omegas, value=all_omegas[len(all_omegas)//2])
+            
+            t_k = np.array([t + 273.15 for t in selected_temps])
+            inv_t, log_at = 1/t_k, np.array([st.session_state.shifts[t] for t in selected_temps])
+            
+            # Ea berekening
+            slope, intercept = np.polyfit(inv_t, log_at, 1)
+            ea = abs(slope * 8.314 * np.log(10) / 1000)
+            
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                fig_ea, ax_ea = plt.subplots(); ax_ea.scatter(inv_t, log_at, color='red'); ax_ea.plot(inv_t, slope*inv_t + intercept, 'k--')
+                ax_ea.set_xlabel("1/T (1/K)"); ax_ea.set_ylabel("log(aT)"); st.pyplot(fig_ea)
+            with c2:
+                st.metric("Ea (Shift)", f"{ea:.1f} kJ/mol")
+                st.warning("⚠️ Bij TPU's: Een plotselinge verandering in Ea kan duiden op het bereiken van de 'Order-Disorder Transition' (ODT).")
 
         with tab4:
-            st.subheader("🔬 Validatie Plots")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("**Han Plot**")
-                fig_han, ax_han = plt.subplots()
-                for t, c in zip(selected_temps, colors):
-                    d = df[df['T_group'] == t]
-                    ax_han.loglog(d['Gpp'], d['Gp'], 'o', color=c, markersize=3)
-                st.pyplot(fig_han)
-            with col2:
-                st.markdown("**Cole-Cole**")
-                fig_cole, ax_cole = plt.subplots()
-                for t, c in zip(selected_temps, colors):
-                    d = df[df['T_group'] == t]
-                    ax_cole.plot(d['Gpp']/d['omega'], d['Gp']/d['omega'], 'o-', color=c)
-                st.pyplot(fig_cole)
+            st.subheader("🔬 TTS Validatie & Crossovers")
+            c_v1, c_v2 = st.columns(2)
+            with c_v1:
+                st.write("**Han Plot** ($G'$ vs $G''$)")
+                fig_h, ax_h = plt.subplots(); [ax_h.loglog(df[df['T_group']==t]['Gpp'], df[df['T_group']==t]['Gp'], 'o', color=c, alpha=0.6) for t, c in zip(selected_temps, colors)]; st.pyplot(fig_h)
+                st.caption("Gevaar: Als de lijnen spreiden, is TTS wiskundig gezien ongeldig voor dit temperatuurbereik.")
+            with c_v2:
+                st.write("**Cole-Cole** ($\eta''$ vs $\eta'$)")
+                fig_c, ax_c = plt.subplots(); [ax_c.plot(df[df['T_group']==t]['Gpp']/t, df[df['T_group']==t]['Gp']/t, 'o-') for t in selected_temps]; st.pyplot(fig_c)
+
+            st.write("**Cross-over Punten ($G' = G''$)**")
+            co_list = []
+            for t in selected_temps:
+                d = df[df['T_group'] == t].sort_values('omega')
+                if len(d) > 2:
+                    f = interp1d(np.log10(d['Gp']) - np.log10(d['Gpp']), np.log10(d['omega']), bounds_error=False)
+                    try: 
+                        w_co = 10**float(f(0))
+                        g_co = 10**float(interp1d(np.log10(d['omega']), np.log10(d['Gp']))(np.log10(w_co)))
+                        co_list.append({"T (°C)": int(t), "ω_co (rad/s)": round(w_co, 2), "G_co (Pa)": round(g_co, 0)})
+                    except: pass
+            if co_list: st.table(pd.DataFrame(co_list))
 
         with tab5:
-            st.subheader("💾 Finale Export & Smoothing")
+            st.subheader("💾 Smooth Export & Resampling")
+            st.info("Deze functie creëert een ruisvrije curve die geschikt is voor simulatiesoftware.")
             
-            master_list = []
+            # Master Data verzamelen voor spline
+            m_list = []
             for t in selected_temps:
-                data = df[df['T_group'] == t].copy()
+                d = df[df['T_group'] == t].copy()
                 at = 10**st.session_state.shifts[t]
-                data['omega_shifted'] = data['omega'] * at
-                data['eta_complex'] = np.sqrt(data['Gp']**2 + data['Gpp']**2) / data['omega_shifted']
-                master_list.append(data)
-            m_df = pd.concat(master_list).sort_values('omega_shifted')
+                d['w_s'] = d['omega'] * at
+                d['eta_s'] = np.sqrt(d['Gp']**2 + d['Gpp']**2) / d['w_s']
+                m_list.append(d)
+            m_df = pd.concat(m_list).sort_values('w_s')
 
-            # Smoothing Sectie
-            st.markdown("---")
-            col_s1, col_s2 = st.columns(2)
-            with col_s1:
-                s_factor = st.slider("Smoothing sterkte (S)", 0.0, 2.0, 0.4, 0.1)
-            with col_s2:
-                n_points = st.slider("Export resolutie (punten)", 10, 100, 50)
+            s_val = st.slider("Smoothing Sterkte (0 = ruw, 1 = glad)", 0.0, 2.0, 0.4, 0.1)
+            res = st.slider("Aantal datapunten", 20, 100, 50)
             
-            log_w = np.log10(m_df['omega_shifted'])
-            log_eta = np.log10(m_df['eta_complex'])
+            log_w, log_eta = np.log10(m_df['w_s']), np.log10(m_df['eta_s'])
+            spl = UnivariateSpline(log_w, log_eta, s=s_val)
+            w_new = np.logspace(log_w.min(), log_w.max(), res)
+            eta_new = 10**spl(np.log10(w_new))
             
-            spl = UnivariateSpline(log_w, log_eta, s=s_factor)
-            w_new_log = np.linspace(log_w.min(), log_w.max(), n_points)
-            w_new = 10**w_new_log
-            eta_new = 10**spl(w_new_log)
+            fig_s, ax_s = plt.subplots(figsize=(10, 4))
+            ax_s.loglog(m_df['w_s'], m_df['eta_s'], 'k.', alpha=0.2, label="Origineel")
+            ax_s.loglog(w_new, eta_new, 'r-', label="Smooth")
+            ax_s.set_ylabel("η* (Pa·s)"); ax_s.set_xlabel("ω·aT (rad/s)"); ax_s.legend(); st.pyplot(fig_s)
             
-            fig_final, ax_f = plt.subplots(figsize=(10, 5))
-            ax_f.loglog(m_df['omega_shifted'], m_df['eta_complex'], 'k.', alpha=0.2, label="Raw Master")
-            ax_f.loglog(w_new, eta_new, 'r-', linewidth=2, label="Smooth Curve")
-            ax_f.set_xlabel("ω·aT (rad/s)"); ax_f.set_ylabel("η* (Pa·s)"); ax_f.legend(); st.pyplot(fig_final)
-
-            out_df = pd.DataFrame({'omega_shifted': w_new, 'eta_complex_smooth': eta_new})
-            csv = out_df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download Smooth Master Curve CSV", csv, "tpu_smooth_master.csv")
-
-    else: st.error("Geen data.")
-else: st.info("👋 Upload een Anton Paar CSV.")
+            csv = pd.DataFrame({'omega_shifted': w_new, 'eta_complex': eta_new}).to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download Smooth Master Curve", csv, "smooth_export.csv", "text/csv")
