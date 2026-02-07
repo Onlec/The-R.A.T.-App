@@ -13,6 +13,7 @@ st.markdown(
     """
     <style>
     [data-testid="stSidebar"] { min-width: 380px; }
+    .main { background-color: #f8f9fa; }
     </style>
     """,
     unsafe_allow_html=True
@@ -21,7 +22,7 @@ st.markdown(
 st.title("🧪 TPU Rheology Master Curve Tool")
 
 def load_rheo_data(file):
-    """Robuuste parser voor Anton Paar reometer CSV exports."""
+    """Parser voor Anton Paar CSV data."""
     try:
         file.seek(0)
         raw_bytes = file.read()
@@ -73,7 +74,7 @@ def load_rheo_data(file):
 
 # --- SIDEBAR ---
 st.sidebar.header("1. Data Import")
-uploaded_file = st.sidebar.file_uploader("Upload je Reometer CSV", type=['csv', 'txt'])
+uploaded_file = st.sidebar.file_uploader("Upload Anton Paar CSV", type=['csv', 'txt'])
 
 if uploaded_file:
     df = load_rheo_data(uploaded_file)
@@ -81,15 +82,15 @@ if uploaded_file:
     if not df.empty and 'T' in df.columns:
         df['T_group'] = df['T'].round(0)
         temps = sorted(df['T_group'].unique())
-        st.sidebar.success(f"✅ {len(temps)} temperaturen geladen")
         
         st.sidebar.header("2. TTS Instellingen")
-        selected_temps = st.sidebar.multiselect("Selecteer temperaturen", options=temps, default=temps)
-        ref_temp = st.sidebar.selectbox("Referentie Temperatuur (°C)", selected_temps if selected_temps else temps, index=len(selected_temps)//2 if selected_temps else 0)
+        selected_temps = st.sidebar.multiselect("Selecteer temperaturen", temps, default=temps)
+        ref_temp = st.sidebar.selectbox("Referentie T (°C)", selected_temps, index=len(selected_temps)//2)
         
-        if 'shifts' not in st.session_state or set(st.session_state.shifts.keys()) != set(temps):
+        if 'shifts' not in st.session_state:
             st.session_state.shifts = {t: 0.0 for t in temps}
-        if 'reset_id' not in st.session_state: st.session_state.reset_id = 0
+        if 'reset_id' not in st.session_state:
+            st.session_state.reset_id = 0
 
         c_auto, c_reset = st.sidebar.columns(2)
         if c_reset.button("🔄 Reset"):
@@ -112,7 +113,7 @@ if uploaded_file:
             st.rerun()
 
         st.sidebar.header("3. Weergave")
-        cmap_option = st.sidebar.selectbox("Kleurenschema", ["plasma", "viridis", "inferno", "coolwarm", "jet"])
+        cmap_option = st.sidebar.selectbox("Kleurenschema", ["coolwarm", "plasma", "viridis", "inferno", "jet"])
         
         st.sidebar.markdown("---")
         st.sidebar.subheader("Handmatige Shift (log aT)")
@@ -122,45 +123,48 @@ if uploaded_file:
                 0.1, format="%.1f", key=f"slide_{t}_{st.session_state.reset_id}"
             )
 
-        # --- VISUALISATIE ---
+        # --- DATA VOORBEREIDEN ---
         color_map = plt.get_cmap(cmap_option)
         colors = color_map(np.linspace(0, 0.9, len(selected_temps)))
         
-        # Tabs aanmaken
+        # --- TABS HOOFDSCHERM ---
         tab1, tab2, tab3 = st.tabs(["📈 Master Curve", "🧪 Structuur Analyse (vGP)", "🧬 Thermische Analyse (Ea)"])
 
         with tab1:
-            st.write(f"### Master Curve @ {ref_temp}°C")
-            col1, col2 = st.columns([2, 1])
-            with col1:
+            st.subheader(f"Master Curve bij {ref_temp}°C")
+            col_graph, col_at = st.columns([2, 1])
+            
+            with col_graph:
                 fig1, ax1 = plt.subplots(figsize=(10, 6))
                 for t, color in zip(selected_temps, colors):
                     data = df[df['T_group'] == t].copy()
                     at = 10**st.session_state.shifts[t]
-                    ax1.loglog(data['omega']*at, data['Gp'], 'o-', color=color, label=f"{int(t)}°C", markersize=4)
+                    ax1.loglog(data['omega']*at, data['Gp'], 'o-', color=color, label=f"{int(t)}°C G'", markersize=4)
                     if 'Gpp' in data.columns:
-                        ax1.loglog(data['omega']*at, data['Gpp'], 'x--', color=color, alpha=0.2, markersize=3)
+                        ax1.loglog(data['omega']*at, data['Gpp'], 'x--', color=color, alpha=0.3, markersize=3)
                 ax1.set_xlabel("ω·aT (rad/s)")
                 ax1.set_ylabel("G', G'' (Pa)")
                 ax1.legend(loc='lower right', fontsize=8, ncol=2)
                 ax1.grid(True, which="both", alpha=0.2)
                 st.pyplot(fig1)
-            with col2:
-                st.subheader("Shift Factors")
-                fig2, ax2 = plt.subplots(figsize=(5, 6))
+
+            with col_at:
+                st.subheader("Shift Factor Trend")
+                fig2, ax2 = plt.subplots(figsize=(5, 7))
                 t_list = sorted(st.session_state.shifts.keys())
                 s_list = [st.session_state.shifts[t] for t in t_list]
-                ax2.plot(t_list, s_list, 's-', color='orange')
-                ax2.axvline(ref_temp, color='red', linestyle='--')
+                ax2.plot(t_list, s_list, 's-', color='#FF4B4B')
+                ax2.axvline(ref_temp, color='black', linestyle='--', alpha=0.5)
                 ax2.set_ylabel("log(aT)")
                 ax2.set_xlabel("T (°C)")
                 st.pyplot(fig2)
                 
                 shifts_df = pd.DataFrame(list(st.session_state.shifts.items()), columns=['T_C', 'log_aT'])
-                st.download_button("📥 Download Shifts", shifts_df.to_csv(index=False), "shifts.csv")
+                st.download_button("📥 Download Shifts CSV", shifts_df.to_csv(index=False), "shifts.csv")
 
         with tab2:
             st.subheader("Van Gurp-Palmen Plot")
+            st.info("💡 Liggen de lijnen niet op elkaar? Dan verandert de structuur van je TPU (smelt/vocht).")
             fig3, ax3 = plt.subplots(figsize=(10, 6))
             for t, color in zip(selected_temps, colors):
                 data = df[df['T_group'] == t].copy()
@@ -173,10 +177,11 @@ if uploaded_file:
             ax3.set_ylim(0, 95)
             ax3.axhline(90, color='red', linestyle='--', alpha=0.2)
             ax3.grid(True, which="both", alpha=0.2)
+            ax3.legend(loc='lower right', fontsize=8, ncol=2)
             st.pyplot(fig3)
 
         with tab3:
-            st.subheader("Berekening Activeringsenergie (Ea)")
+            st.subheader("Arrhenius Analyse")
             t_kelvin = np.array([t + 273.15 for t in selected_temps])
             inv_t = 1/t_kelvin
             log_at = np.array([st.session_state.shifts[t] for t in selected_temps])
@@ -184,22 +189,26 @@ if uploaded_file:
             if len(selected_temps) > 2:
                 coeffs = np.polyfit(inv_t, log_at, 1)
                 ea = (coeffs[0] * 8.314 * np.log(10)) / 1000
-                col_ea1, col_ea2 = st.columns([2, 1])
-                with col_ea1:
+                
+                col_ea_plot, col_ea_val = st.columns([2, 1])
+                with col_ea_plot:
                     fig4, ax4 = plt.subplots(figsize=(8, 5))
-                    ax4.plot(inv_t, log_at, 'os', label='Data')
-                    ax4.plot(inv_t, np.polyval(coeffs, inv_t), 'r--', label='Arrhenius Fit')
+                    ax4.plot(inv_t, log_at, 'o', color='#FF4B4B', label='Meetdata')
+                    ax4.plot(inv_t, np.polyval(coeffs, inv_t), 'k--', alpha=0.6, label='Arrhenius Fit')
                     ax4.set_xlabel("1/T (1/K)")
                     ax4.set_ylabel("log(aT)")
+                    ax4.legend()
                     ax4.grid(True, alpha=0.2)
                     st.pyplot(fig4)
-                with col_ea2:
-                    st.metric("Ea", f"{abs(ea):.1f} kJ/mol")
-                    st.caption("Hoe rechter de lijn in de grafiek links, hoe beter de fit.")
+                with col_ea_val:
+                    st.metric("Activeringsenergie (Ea)", f"{abs(ea):.1f} kJ/mol")
+                    st.write("---")
+                    st.write("**Hoe lees ik dit?**")
+                    st.caption("Een Ea tussen 60-150 kJ/mol is normaal voor TPU. Als de punten een curve vormen in plaats van een rechte lijn, volgt je materiaal de WLF-wet in plaats van Arrhenius.")
             else:
-                st.warning("Selecteer meer temperaturen.")
+                st.warning("Selecteer minimaal 3 temperaturen voor deze analyse.")
 
     else:
-        st.error("Data kon niet worden geladen.")
+        st.error("Bestand bevat geen geldige temperatuurdata.")
 else:
-    st.info("Upload een bestand.")
+    st.info("👋 Welkom! Upload een Anton Paar CSV export om te beginnen.")
