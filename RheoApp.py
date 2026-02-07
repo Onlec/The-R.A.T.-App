@@ -149,15 +149,38 @@ if uploaded_file:
         st.sidebar.success(f"✅ {len(temps)} temperaturen geladen: {temps}")
         
         st.sidebar.header("2. TTS Instellingen")
-        ref_temp = st.sidebar.selectbox("Referentie Temperatuur (°C)", temps, index=len(temps)//2)
+
+        # NIEUW: Multiselect om temperaturen uit te vinken
+        selected_temps = st.sidebar.multiselect(
+            "Selecteer temperaturen voor Master Curve",
+            options=temps,
+            default=temps
+        )
         
-        # Initialiseer shift factors in session state
+        # Update ref_temp zodat deze alleen uit de geselecteerde temps kiest
+        ref_temp = st.sidebar.selectbox(
+            "Referentie Temperatuur (°C)", 
+            selected_temps if selected_temps else temps, 
+            index=0
+        )
+        
+        # Initialiseer shift factors
         if 'shifts' not in st.session_state or set(st.session_state.shifts.keys()) != set(temps):
             st.session_state.shifts = {t: 0.0 for t in temps}
         
+        # Knoppen naast elkaar: Auto-align en Reset
+        col_auto, col_reset = st.sidebar.columns(2)
+        if col_reset.button("🔄 Reset Shifts"):
+            for t in temps:
+                st.session_state.shifts[t] = 0.0
+            st.rerun()
+
         # Automatische uitlijning
         if st.sidebar.button("🚀 Automatisch Uitlijnen"):
-            for t in temps:
+            for t in selected_temps:
+                st.session_state.shifts[t] = st.sidebar.slider(
+                    f"log(aT) @ {t}°C", -10.0, 10.0, st.session_state.shifts[t], key=f"slider_{t}"
+                )
                 if t == ref_temp:
                     st.session_state.shifts[t] = 0.0
                     continue
@@ -211,9 +234,9 @@ if uploaded_file:
             fig1, ax1 = plt.subplots(figsize=(12, 8))
             
             # Kleurenschema voor temperaturen
-            colors = plt.cm.plasma(np.linspace(0, 0.9, len(temps)))
+            colors = plt.cm.plasma(np.linspace(0, 0.9, len(selected_temps)))
             
-            for t, color in zip(temps, colors):
+            for t, color in zip(selected_temps, colors):
                 data = df[df['T_group'] == t].copy()
                 a_t = 10**st.session_state.shifts[t]
                 
