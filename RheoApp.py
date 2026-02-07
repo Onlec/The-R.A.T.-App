@@ -12,6 +12,45 @@ st.title("🧪 TPU Rheology Master Curve Tool")
 
 # --- FUNCTIE VOOR DATA INLEZEN ---
 def load_rheo_data(file):
+    # Probeer eerst utf-8, als dat faalt gebruik latin-1
+    try:
+        content = file.getvalue().decode('utf-8').splitlines()
+    except UnicodeDecodeError:
+        content = file.getvalue().decode('latin-1').splitlines()
+    
+    start_row = 0
+    for i, line in enumerate(content):
+        # We zoeken naar de regel waar de data echt begint
+        if "Point No." in line:
+            start_row = i
+            break
+    
+    file.seek(0)
+    # Gebruik ook hier latin-1 voor de zekerheid bij het inlezen met pandas
+    try:
+        df = pd.read_csv(file, sep='\t', skiprows=start_row, decimal='.', encoding='utf-8')
+    except UnicodeDecodeError:
+        file.seek(0)
+        df = pd.read_csv(file, sep='\t', skiprows=start_row, decimal='.', encoding='latin-1')
+    
+    # Clean data: verwijder eenheden-rij en lege regels
+    df['Point No.'] = pd.to_numeric(df['Point No.'], errors='coerce')
+    df = df.dropna(subset=['Point No.'])
+    
+    # Mapping van de kolomnamen (zorg dat deze matchen met jouw CSV)
+    mapping = {
+        'Temperature': 'T',
+        'Angular Frequency': 'omega',
+        'Storage Modulus': 'Gp',
+        'Loss Modulus': 'Gpp'
+    }
+    df = df.rename(columns=mapping)
+    
+    for col in ['T', 'omega', 'Gp', 'Gpp']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    return df.dropna(subset=['omega', 'Gp'])
     content = file.getvalue().decode('utf-8').splitlines()
     start_row = 0
     for i, line in enumerate(content):
