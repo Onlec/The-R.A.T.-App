@@ -1154,36 +1154,37 @@ with tab_prep:
     
     trouble_data = {
         "Symptoom": [
-            "Normal Force stijgt (> 5N)",
-            "Torque te laag (< 10%)",
-            "Torque pieken/oscillaties",
-            "G' daalt in time-sweep",
-            "G' stijgt in time-sweep",
-            "Bellen in sample",
+            "G' daalt plotseling", 
+            "G' stijgt onverklaarbaar", 
+            "Fasehoek δ > 90°", 
+            "G' daalt in time-sweep", 
+            "G' stijgt in time-sweep", 
+            "Bellen in sample", 
             "Bruine verkleuring"
         ],
         "Oorzaak": [
-            "Sample squeeze flow, Gap te klein",
-            "Sample te weinig, Gap te groot, Slip",
-            "Rand-instabiliteit, Sample slip",
-            "Degradatie, Hydrolyse actief",
-            "Crosslinking, NCO na-reactie",
-            "Vocht in sample, Degradatie CO₂",
-            "Oxidatie, Thermische degradatie"
+            "Sample squeeze flow", 
+            "Sample te weinig/Slip", 
+            "Instrument traagheid", 
+            "Degradatie/Hydrolyse", 
+            "Crosslinking/Na-reactie", 
+            "Vocht/CO2 vorming", 
+            "Oxidatie"
         ],
         "Directe Actie": [
-            "Stop → Reset gap → Fresh sample",
-            "Stop → Reduceer gap 0.1mm → Retry",
-            "Reduceer strain 50% → Retry",
-            "Stop → Check droogtijd → Fresh sample",
-            "Stop → Reduceer max T (-20°C) → N₂ check",
-            "Abort → Re-dry sample 2h → Retry",
-            "Abort → Reduceer T (-30°C) → N₂ flow check"
+            "Reset gap", 
+            "Reduceer gap 0.1mm", 
+            "Check luchttoevoer", 
+            "Check droogtijd", 
+            "T_max verlagen", 
+            "Sample 2u nadrogen", 
+            "N2 flow verhogen"
         ]
     }
-    
-    df_trouble = pd.DataFrame(trouble_data)
-    st.table(df_trouble)
+
+    # Gebruik een schone variabelenaam om verwarring te voorkomen
+    df_trouble_final = pd.DataFrame(trouble_data)
+    st.table(df_trouble_final)
 
 # Sidebar
 st.sidebar.markdown("---")
