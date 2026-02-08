@@ -1335,34 +1335,31 @@ with tab_scenarios:
     st.subheader("✅ Algemene Troubleshooting Checklist")
     
     checklist_data = {
-        "Check": [
-            "Sample Voorbereiding",
-            "Meetcondities",
-            "Temperatuur Range",
-            "Referentie Keuze",
-            "Data Kwaliteit",
-            "Validatie Plots",
-            "Fysische Consistentie"
-        ],
-        "Wat te Controleren": [
-            "Droogtijd (3h @ 80°C vacuüm), geen re-grind mix, homogeen sample",
-            "Strain < 5% (LVE!), 5 min equilibratie per T, N₂ purge actief",
-            "Minimaal 5 temperaturen, span > 40°C, T_max < degradatie temp",
-            "T_ref > Softening Point + 20K, bij voorkeur hoogste T",
-            "Reproduceerbaar?, Geen drift in time-sweep?, G' en G'' smooth?",
-            "Van Gurp-Palmen overlap?, Han Plot geen shift?, Cole-Cole consistent?",
-            "η₀ realistisch (10⁴-10⁶)?, Slope ≈ 2?, Crossovers logisch?"
-        ],
-        "Red Flags": [
-            "Vocht bellen, kleur verandering, inhomogeniteit",
-            "Strain > 10%, Drift > 5%, Geen N₂",
-            "n < 4, span < 30°C, T_max > 230°C",
-            "T_ref < Softening, Laagste T gekozen",
-            "Variatie > 20%, Time-sweep daalt, Spikes in data",
-            "Spreiding, Verticale shift, Vorm verandert",
-            "η₀ < 100, Slope < 1.5, Crossovers > 2"
-        ]
-    }
+    "Stap": [
+        "Voorbereiding", 
+        "Meting", 
+        "Temperatuur", 
+        "Stabiliteit", 
+        "Validatie", 
+        "Interpretatie"
+    ],
+    "Check": [
+        "Strain < 5% (LVE!), 5 min equilibratie per T, N₂ purge actief",
+        "Minimaal 5 temperaturen, span > 40°C, T_max < degradatie temp",
+        "T_ref > Softening Point + 20K, bij voorkeur hoogste T",
+        "Reproduceerbaar?, Geen drift in time-sweep?, G' en G'' smooth?",
+        "Van Gurp-Palmen overlap?, Han Plot geen shift?, Cole-Cole consistent?",
+        "η₀ realistisch (10⁴-10⁶)?, Slope ≈ 2?, Crossovers logisch?"
+    ],
+    "Red Flags": [
+        "Vocht bellen, kleurverandering, inhomogeniteit",
+        "Strain > 10%, Drift > 5%, Geen N₂",
+        "N_temp < 4, span < 30°C, T_max > 230°C",
+        "T_ref < Softening, Laagste T gekozen",
+        "Variatie > 20%, Time-sweep daalt (Degradatie!), Spikes",
+        "vGP spreiding, Han-shift, η₀ < 100, Slope < 1.5"
+    ]
+}
     
     df_checklist = pd.DataFrame(checklist_data)
     st.table(df_checklist)
