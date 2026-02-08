@@ -211,15 +211,6 @@ def find_all_crossovers(omega, Gp, Gpp):
 
 # --- SIDEBAR ---
 st.sidebar.title("Control Panel")
-st.divider()
-st.markdown("### 📚 Documentatie")
-st.info("""
-Gebruik de navigatie hiernaast om dieper in de theorie te duiken:
-- **Pagina 1**: Formules & WLF/VFT
-- **Pagina 2**: Plots interpreteren
-- **Pagina 3**: Troubleshooting & Data tips
-""")
-st.divider()
 uploaded_file = st.sidebar.file_uploader("Upload frequency sweep CSV/TXT", type=['csv', 'txt'])
 
 if uploaded_file:
