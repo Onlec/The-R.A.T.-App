@@ -665,8 +665,12 @@ if uploaded_file:
             r2_adj = 1 - (1 - r2_final) * (n_points - 1) / max(n_points - p - 1, 1)
 
             # VFT BEREKENING
-            t_inf = T_ref_K - wlf_c2  # T_infinity in Kelvin
-            t_inf_c = t_inf - 273.15  # T_infinity in Celsius  
+            T_ref_K = ref_temp + 273.15
+            if not np.isnan(wlf_c2):
+                t_inf = T_ref_K - wlf_c2  
+                t_inf_c = t_inf - 273.15
+            else:
+                t_inf_c = np.nan
             # --- STAP 2: UI - KPI QUICK-LOOK (Slechts één keer) ---
             col_a, col_b, col_c, col_d = st.columns(4)
             col_a.metric("Flow Activation (Ea)", f"{ea_final:.1f} kJ/mol")
