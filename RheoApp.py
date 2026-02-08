@@ -722,12 +722,12 @@ if uploaded_file:
             """, unsafe_allow_html=True)
             
         with tab7:
-            st.header("📊 Expert Dashboard")
+            st.header(f"📊 {texts['summary_header']}")
 
             # --- KPI METRICS (Gebruik al berekende waarden) ---
             col_a, col_b, col_c, col_d = st.columns(4)
-            col_a.metric("Flow Activation (Ea)", f"{ea_final:.1f} kJ/mol")
-            col_b.metric("Zero Shear (η₀)", f"{eta0:.2e} Pa·s" if not np.isnan(eta0) else "N/A")
+            col_a.metric(texts["ea_metric"], f"{ea_final:.1f} kJ/mol")
+            col_b.metric(texts["eta_metric"], f"{eta0:.2e} Pa·s" if not np.isnan(eta0) else "N/A")            
             col_c.metric("TTS Adj. R²", f"{r2_adj:.4f}", help="Gecorrigeerd voor aantal datapunten")
             col_d.metric("Crossovers", f"{num_cos}", delta="Complex" if num_cos > 1 else "Simpel")
 
