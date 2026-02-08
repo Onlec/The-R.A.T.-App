@@ -664,6 +664,9 @@ if uploaded_file:
             p = 1
             r2_adj = 1 - (1 - r2_final) * (n_points - 1) / max(n_points - p - 1, 1)
 
+            # VFT BEREKENING
+            t_inf = T_ref_K - wlf_c2  # T_infinity in Kelvin
+            t_inf_c = t_inf - 273.15  # T_infinity in Celsius  
             # --- STAP 2: UI - KPI QUICK-LOOK (Slechts één keer) ---
             col_a, col_b, col_c, col_d = st.columns(4)
             col_a.metric("Flow Activation (Ea)", f"{ea_final:.1f} kJ/mol")
@@ -680,6 +683,7 @@ if uploaded_file:
                 {"Categorie": "Thermisch", "Parameter": "Activatie Energie (Ea)", "Waarde": f"{ea_final:.2f}", "Eenheid": "kJ/mol", "Info": "Gevoeligheid voor T-veranderingen"},
                 {"Categorie": "Thermisch", "Parameter": "WLF C1 (Logat)", "Waarde": f"{wlf_c1:.2f}", "Eenheid": "-", "Info": "Vrije volume factor"},
                 {"Categorie": "Thermisch", "Parameter": "WLF C2", "Waarde": f"{wlf_c2:.2f}", "Eenheid": "K", "Info": "Afstand tot Tg"},
+                {"Categorie": "Thermisch", "Parameter": "VFT T∞ (Vogel Temp)", "Waarde": f"{t_inf_c:.1f}", "Eenheid": "°C", "Info": "Temp. waarbij mobiliteit stopt"},
                 {"Categorie": "Viscositeit", "Parameter": "Zero Shear Viscosity (η₀)", "Waarde": f"{eta0:.2e}", "Eenheid": "Pa·s", "Info": "Maat voor Mw en processtabiliteit"},
                 {"Categorie": "Viscositeit", "Parameter": "Relaxatietijd (τ)", "Waarde": f"{fit_params[1]:.3f}" if fit_success else "N/A", "Eenheid": "s", "Info": "Gemiddelde keten-ontwarringstijd"},
                 {"Categorie": "Structuur", "Parameter": "Terminal Slope G'", "Waarde": f"{slope_term:.2f}", "Eenheid": "-", "Info": "Vloeigedrag (Ideaal = 2.0)"},
@@ -710,6 +714,14 @@ if uploaded_file:
                     st.success(f"✅ **Arrhenius dominant:** Uitstekende lineaire fit (R²: {r2_final:.4f}).")
                 else:
                     st.warning(f"⚠️ **Arrhenius afwijking:** R² is {r2_final:.4f}. Let op fase-overgangen.")
+                
+                st.write("**VFT / Glasovergang:**")
+                if t_inf_c > 0: # Voor TPU is T_inf meestal ver onder 0°C
+                    st.warning(f"⚠️ **Hoge T∞:** {t_inf_c:.1f} °C. Dit is ongebruikelijk voor TPU zachte segmenten. Controleer de shift factors.")
+                else:
+                    st.success(f"✅ **T∞ (VFT):** {t_inf_c:.1f} °C. Dit wijst op een Tg rond de {t_inf_c + 50:.1f} °C.")
+                
+                st.caption("T∞ is de temperatuur waarbij alle moleculaire beweging stopt.")                                                                                                                 
 
             with check_col2:
                 st.write("**Professor's Diagnose:**")
