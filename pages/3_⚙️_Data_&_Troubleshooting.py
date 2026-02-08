@@ -1014,7 +1014,7 @@ with tab_prep:
     # Pre-Measurement Checklist
     st.subheader("✅ PRE-MEASUREMENT CHECKLIST")
     
-    checklist_data = {
+    trouble_data = {
         "Item": [
             "📦 Sample Voorbereiding",
             "▫️ Virgin pellets (geen re-grind)",
@@ -1053,7 +1053,7 @@ with tab_prep:
         "Opmerkingen": [""] * 30
     }
     
-    df_checklist = pd.DataFrame(checklist_data)
+    df_checklist = pd.DataFrame(trouble_data)
     
     # Editable checklist (voor interactief gebruik)
     st.info("💡 **Tip:** Screenshot deze checklist of print als PDF voor gebruik bij de rheometer!")
