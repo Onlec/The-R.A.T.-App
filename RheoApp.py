@@ -205,6 +205,8 @@ if uploaded_file:
             st.rerun()
 
         if c_auto.button("🚀 Auto-Align"):
+            st.session_state.shifts[ref_temp] = 0.0
+
             for t in selected_temps:
                 if t == ref_temp: 
                     continue
@@ -214,8 +216,11 @@ if uploaded_file:
                     f = interp1d(np.log10(ref_d['omega']), np.log10(ref_d['Gp']), bounds_error=False)
                     v = f(np.log10(tgt_d['omega']) + log_at)
                     m = ~np.isnan(v)
-                    return np.sum((v[m] - np.log10(tgt_d['Gp'].values[m]))**2) if np.sum(m) >= 2 else 9999
-                res = minimize(objective, x0=st.session_state.shifts[t], method='Nelder-Mead')
+                    if np.sum(m) >= 2:
+                        return np.sum((v[m] - np.log10(tgt_d['Gp'].values[m]))**2)
+                    else:
+                        return 9999 # Strafwaarde als er geen overlap is
+                res = minimize(objective, x0=0.0, method='Nelder-Mead')
                 st.session_state.shifts[t] = round(float(res.x[0]), 2)
             st.session_state.reset_id += 1
             st.rerun()
@@ -415,7 +420,7 @@ if uploaded_file:
             
             if len(selected_temps) > 1:
                 st.warning("👉 **Observatie:** Als je hier duidelijke 'trappen' of verschuivingen tussen de kleuren ziet, verklaart dat je negatieve WLF C1 waarde. Het materiaal is thermorheologisch complex.")
-                
+
         with tab3:
             st.subheader("Loss Tangent (tan δ) - Relaxation Spectrum")
             fig_tan, ax_tan = plt.subplots(figsize=(10, 5))
