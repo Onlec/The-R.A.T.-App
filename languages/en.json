@@ -41,7 +41,19 @@
       "model_comparison_intro": "Different temperature models predict different shift factor trends:",
       "model_arrhenius": "Arrhenius (Simple)",
       "model_wlf": "WLF (Rubber)",
-      "model_vft": "VFT (Hybrid)"
+      "model_vft": "VFT (Hybrid)",
+      "model_comparison_params_label": "**Compare the models:**",
+      "model_comparison_tref_label": "T_ref (°C)",
+      "model_comparison_ea_label": "Ea (kJ/mol) [Arrhenius]",
+      "model_comparison_c1_label": "WLF C₁",
+      "model_comparison_c2_label": "WLF C₂ (K)",
+      "model_comparison_adjust_tip": "💡 Adjust parameters to see the effect!",
+      "model_comparison_plot_title": "Model Comparison: Arrhenius vs WLF",
+      "model_comparison_x_label": "Temperature (°C)",
+      "model_comparison_y_label": "log(aT)",
+      "model_comparison_ref_line": "T_ref = {tref}°C",
+      "model_comparison_annotation": "At T_ref = {tref}°C: log(aT) = 0",
+      "model_comparison_interpretation": "**Interpretation:**\n- **Arrhenius** (red): Linear relationship, simple model\n- **WLF** (blue): Curved trend, better for polymers near Tg\n- Both models cross at T_ref (log(aT) = 0)\n- Difference between models larger at low/high T"
     },
     "thermal": {
       "header": "Thermal Shift Factor Models",
@@ -217,7 +229,13 @@
       "quick_result_title": "**📊 RESULT:**",
       "quick_result_all_yes": "**All ✅?** → Perfect! Use your master curve with confidence.",
       "quick_action_title": "**🔧 DIRECT ACTIONS:**",
-      "quick_actions": "| Observation | Action | Expected Result |\n|-------------|--------|------------------|\n| **Vertical steps** | Increase T_max +20°C | Steps disappear |\n| **Curves spread apart** | Use only T > 200°C data | Better overlap |\n| **Hook at high δ** | Ignore δ > 80° region | Cleaner curves |\n| **Random scatter** | Check strain amplitude (LVE?) | Less noise |\n| **Crossing curves** | Don't use TTS | Analyze per T |"
+      "quick_actions": "| Observation | Action | Expected Result |\n|-------------|--------|------------------|\n| **Vertical steps** | Increase T_max +20°C | Steps disappear |\n| **Curves spread apart** | Use only T > 200°C data | Better overlap |\n| **Hook at high δ** | Ignore δ > 80° region | Cleaner curves |\n| **Random scatter** | Check strain amplitude (LVE?) | Less noise |\n| **Crossing curves** | Don't use TTS | Analyze per T |",
+      "quick_q3": "**Question 3:** Do you see a 'hook' at low |G*|?",
+      "quick_q3_yes": "ℹ️ YES → Normal for TPU soft-segments, no problem",
+      "quick_q3_no": "✅ NO → No elastic network effect",
+      "quick_q4": "**Question 4:** Does the curve shape change with T (not just vertical shift)?",
+      "quick_q4_yes": "❌ YES → COMPLEX, TTS questionable",
+      "quick_q4_no": "✅ NO → Only vertical spreading, possibly OK"
     },
     "han": {
       "header": "🔬 Han Plot (G' vs G'')",
@@ -336,7 +354,34 @@
         "🔵 Multiple crossovers appear",
         "🟣 η₀ varies between batches",
         "⚫ Time-sweep shows drift"
-      ]
+      ],
+      "scenario1_title": "### 🚨 Negative WLF C₁",
+      "scenario1_symptom": "**Symptom:**\n```\nWLF fit gives C₁ < 0\nPhysically impossible!\n```",
+      "scenario1_root_cause": "**Root Cause:**\n\nMaterial is **thermorheologically COMPLEX** in this temperature range.\n\n**Three main causes:**\n\n1. **T_ref too low**\n   - Below hard-segment melt point\n   - Crystallization effects dominate\n   - → Solution: Increase T_ref to highest measured T\n\n2. **Incomplete melting**\n   - Hard segments not fully melted\n   - Residual crystallinity\n   - → Solution: Increase all measurement temperatures +20°C\n\n3. **Phase separation**\n   - Soft/hard segment mixing changes with T\n   - Morphology evolves during measurement\n   - → Solution: Accept complexity, use per-T data",
+      "scenario1_decision_tree": "```\nSTART: Negative C₁ found\n    │\n    ├─→ Is T_ref > Softening Point? (Dashboard Tab 4)\n    │   ├─ NO → Set T_ref = highest measured T → Refit\n    │   └─ YES → Continue\n    │\n    ├─→ Check Van Gurp-Palmen plot\n    │   ├─ Strong spreading → TTS invalid → Use per-T data\n    │   └─ Moderate spreading → Continue\n    │\n    ├─→ Remove lowest temperatures from fit\n    │   └─ Remove T < (T_ref - 30K) → Refit WLF\n    │\n    ├─→ Still negative?\n    │   ├─ YES → Switch to Arrhenius model\n    │   └─ NO → Use WLF with caution\n    │\n    └─→ Final check: R² > 0.90?\n        ├─ YES → Acceptable (but material is complex)\n        └─ NO → Don't use TTS, analyze per temperature\n```",
+      "scenario1_solutions": "**🔧 Solutions:**\n\n**Option 1: Adjust T_ref** (Quickest)\n- Set T_ref = highest measured temperature\n- This often eliminates negative C₁\n- Refit WLF with new T_ref\n\n**Option 2: Reduce temperature range**\n- Remove lowest 1-2 temperatures\n- Keep only T > 180°C (or T > Tm_hard + 30K)\n- Narrower range → better fit\n\n**Option 3: Switch to Arrhenius**\n- Less sensitive to complexity\n- Linear model, simpler\n- May have lower R² but no negative parameters\n\n**Option 4: Accept limitations**\n- Use shift factors for TRENDS only\n- Don't extrapolate beyond measured range\n- Analyze critical regions per temperature",
+      "scenario1_prevention": "**🛡️ Prevention:**\n\n**Before measurement:**\n- Know your Tm_hard (from DSC)\n- Measure at T > Tm_hard + 30K minimum\n- Start with high T_ref (e.g., 200-210°C for standard TPU)\n\n**During measurement:**\n- Time-sweep at each T (check stability)\n- Dry sample thoroughly (<200 ppm moisture)\n- Use N₂ purge at high temperatures",
+      "scenario2_title": "### ⚠️ Master Curve Doesn't Align",
+      "scenario2_symptom": "**Symptom:** You see 'steps' or gaps between temperature curves in master curve",
+      "scenario2_three_types": "**Three Stepping Patterns:**\n\n**Type 1: Vertical Offset** (Easiest to fix)\n- Each T shifted vertically but smooth internally\n- Cause: Systematic shift factor error\n- Fix: Manual shift adjustment or increase T_max\n\n**Type 2: Terminal Zone Steps** (Common in TPU)\n- Steps only at low ω (high δ > 75°)\n- High ω overlaps well\n- Cause: Incomplete melting, crystallinity\n- Fix: Increase T_max +20°C, verify time-sweep\n\n**Type 3: Complete Discontinuity** (Problematic)\n- No overlap at any frequency\n- Each T is separate curve\n- Cause: Thermorheological complexity\n- Fix: Don't use TTS, analyze per temperature",
+      "scenario2_checklist": "**✅ Diagnostic Checklist:**\n\n□ Van Gurp-Palmen shows spreading? → Confirms complexity\n□ Han plot curves overlap? → If NO, chemical changes\n□ Terminal slope >1.8 at all T? → If NO, incomplete melt\n□ Time-sweep stable at each T (<5%)? → If NO, degradation\n□ Sample dry (<200 ppm)? → Moisture causes artifacts\n□ All T > Tm_hard + 20K? → If NO, crystallization\n\n**If all OK but still stepping:**\n→ Material is inherently complex\n→ Use manual shift or per-T analysis",
+      "scenario3_title": "### ⚠️ Low Terminal Slope",
+      "scenario3_symptom": "**Symptom:** Dashboard shows Terminal Slope < 1.5 (ideal = 2.0)",
+      "scenario3_diagnostics": "**🔬 Diagnostics:**\n\n**What slope value means:**\n\n| Slope | Diagnosis | Action |\n|-------|-----------|--------|\n| **1.9-2.1** | ✅ Excellent | No action |\n| **1.7-1.9** | ⚠️ Acceptable | Monitor |\n| **1.5-1.7** | ❌ Problem | Increase T +20°C |\n| **<1.5** | 🚨 Severe | Check sample! |\n\n**Causes of low slope:**\n1. **Incomplete melt** → Hard segments crystalline\n2. **Crosslinking** → Chemical bonds forming\n3. **Long-chain branching** → Not truly linear\n4. **Measurement artifact** → Check strain, gap\n\n**Solution pathway:**\n```\nIncrease T_max +20°C\n   ↓\nVerify time-sweep stable\n   ↓\nCheck strain in LVE\n   ↓\nStill low? → Sample may be crosslinked\n```",
+      "scenario4_title": "### ℹ️ Zero-Shear Viscosity Fit Problem",
+      "scenario4_symptom": "**Symptom:** Cross model fit fails, η₀ = N/A",
+      "scenario4_causes": "**Causes:**\n1. Insufficient terminal data (need δ > 75° points)\n2. Terminal slope wrong (not Newtonian)\n3. No clear plateau in viscosity curve\n\n**Solutions:**\n- Add lower frequencies (<0.1 rad/s)\n- Increase T_max if slope < 1.8\n- Try manual extrapolation from plot",
+      "scenario5_title": "### ℹ️ Poor Arrhenius Fit",
+      "scenario5_symptom": "**Symptom:** R² or Adj. R² < 0.90",
+      "scenario5_meaning": "**What it means:**\n- Material doesn't follow simple Arrhenius\n- Possibly better suited for WLF\n- May have phase transitions in T-range\n\n**Actions:**\n1. Remove outlier temperatures\n2. Try WLF model instead\n3. Check if T-range too broad\n4. Accept R² = 0.85-0.90 as \"good enough\" for trends",
+      "scenario6_title": "### 🚨 Crosslinking Detected!",
+      "scenario6_symptom": "**Symptom:** At high T, curves are ABOVE those at low T",
+      "scenario6_immediate_action": "**⚠️ IMMEDIATE ACTION:**\n1. STOP using this sample\n2. Check thermal history\n3. Verify no pre-exposure to >220°C\n4. Test fresh sample\n5. If repeats → Material crosslinks during processing",
+      "scenario7_title": "### ⚫ Multi-Crossover System",
+      "scenario7_symptom": "**Symptom:** Dashboard shows 2+ crossovers",
+      "scenario7_hierarchy": "**Diagnostic hierarchy:**\n1. Check Van Gurp-Palmen → Spreading confirms complexity\n2. Check Cole-Cole → Asymmetry shows bi-modal MWD\n3. Check Han plot → Vertical shifts show batch differences\n4. Check sample source → Re-grind? Blend?",
+      "general_checklist_title": "✅ General Troubleshooting Checklist",
+      "general_checklist": "**📋 Before Every Measurement:**\n\n**Sample Preparation:**\n□ Dried at 80°C, vacuum, 4-6 hours\n□ Moisture <0.02% (200 ppm)\n□ No visible degradation (color, smell)\n□ Pure virgin material (or known regrind %)\n\n**Rheometer Setup:**\n□ Plates clean and parallel\n□ Gap 1mm (or appropriate for sample)\n□ Strain in LVE region (from amplitude sweep)\n□ N₂ purge on for T >200°C\n\n**During Measurement:**\n□ Time-sweep at T_max: G' drift <5%\n□ All temperatures >Tm_hard + 20K\n□ Data smooth (no jumps or artifacts)\n□ Torque in measurable range\n\n**After Measurement:**\n□ Sample visually unchanged (no bubbles, browning)\n□ Van Gurp-Palmen curves check\n□ Terminal slope in range 1.8-2.2\n□ Shift factor R² >0.90\n\n**If ANY check fails → Investigate before trusting results!**"
     }
   },
   "data_troubleshooting": {
