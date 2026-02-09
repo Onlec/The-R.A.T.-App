@@ -17,7 +17,7 @@ if 'lang' not in st.session_state:
 def load_translations(language):
     """Load unified translations from languages folder"""
     # Ga van pages/ naar root, dan naar languages/
-    lang_file = Path(__file__).parent / 'languages' / f'{language}.json'
+    lang_file = Path(__file__).parent.parent / 'languages' / f'{language}.json'
     
     with open(lang_file, 'r', encoding='utf-8') as f:
         return json.load(f)
