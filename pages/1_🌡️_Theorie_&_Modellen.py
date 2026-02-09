@@ -97,73 +97,159 @@ with tab_tts:
     st.divider()
     
     # Interactive Demo
-    st.subheader(tts.get("demo_title", "📊 Interactieve TTS Demonstratie"))
+    st.divider()
+
+# Interactive TTS Demo - IMPROVED VERSION
+st.subheader(tts.get("demo_title", "📊 Interactieve TTS Demonstratie"))
+
+demo_col1, demo_col2 = st.columns([2, 1])
+
+with demo_col2:
+    st.markdown("**Speel met de parameters:**")
     
-    demo_col1, demo_col2 = st.columns([2, 1])
+    # Reference temperature
+    ref_temp = st.slider(
+        "Referentie Temperatuur (°C)",
+        min_value=180, max_value=220, value=200, step=10,
+        help="Dit is je 'anker' temperatuur waar aT = 1"
+    )
     
-    with demo_col2:
-        st.markdown(tts.get("demo_params_label", "**Speel met de parameters:**"))
-        
-        ref_temp = st.slider(
-            tts.get("demo_ref_temp", "Referentie Temperatuur (°C)"),
-            min_value=150, max_value=250, value=200, step=10,
-            help=tts.get("demo_tref_info", "Dit is je 'anker' temperatuur")
-        )
-        
-        test_temp = st.slider(
-            tts.get("demo_test_temp", "Test Temperatuur (°C)"),
-            min_value=150, max_value=250, value=170, step=10
-        )
-        
-        ea = st.slider(
-            tts.get("demo_ea", "Activatie Energie Ea (kJ/mol)"),
-            min_value=40, max_value=150, value=100, step=5
-        )
-        
-        # Calculate shift factor (Arrhenius)
-        R = 8.314  # J/mol·K
-        T_ref_K = ref_temp + 273.15
-        T_test_K = test_temp + 273.15
-        
-        log_aT = (ea * 1000 / R) * (1/T_test_K - 1/T_ref_K) / 2.303
-        aT = 10**log_aT
-        
-        st.markdown(tts.get("demo_shift_result", "**📌 Resultaat:**").format(test_temp=test_temp))
-        st.code(tts.get("demo_shift_formula", "log(aT) = {log_at:.3f}  →  aT = {at:.4f}").format(
-            log_at=log_aT, at=aT
-        ))
-        
-        omega_equiv = 1.0 * aT
-        st.info(tts.get("demo_interpretation", "**💡 Interpretatie:**\n...").format(
-            test_temp=test_temp, ref_temp=ref_temp, omega_equiv=omega_equiv
-        ))
+    # Test temperature (lower than reference)
+    test_temp = st.slider(
+        "Test Temperatuur (°C)",
+        min_value=160, max_value=200, value=170, step=10,
+        help="Lagere T → data verschuift naar links"
+    )
     
-    with demo_col1:
-        # Simple demo plot
-        fig, ax = plt.subplots(figsize=(8, 5))
-        omega = np.logspace(-2, 2, 50)
+    # Activation energy
+    ea = st.slider(
+        "Activatie Energie Ea (kJ/mol)",
+        min_value=60, max_value=140, value=100, step=10,
+        help="Hoger Ea → grotere verschuiving"
+    )
+    
+    st.markdown("---")
+    
+    # Toggle for TTS effect
+    show_shifted = st.checkbox(
+        "✨ **Pas TTS toe** (shift de curve)", 
+        value=False,
+        help="Schakel om het effect van TTS te zien!"
+    )
+    
+    # Calculate shift factor (Arrhenius)
+    R = 8.314  # J/mol·K
+    T_ref_K = ref_temp + 273.15
+    T_test_K = test_temp + 273.15
+    
+    log_aT = (ea * 1000 / R) * (1/T_test_K - 1/T_ref_K) / 2.303
+    aT = 10**log_aT
+    
+    st.markdown("**📌 Berekende Shift Factor:**")
+    st.code(f"log(aT) = {log_aT:.2f}\naT = {aT:.1f}")
+    
+    if show_shifted:
+        st.success(f"✅ TTS toegepast!\nω verschoven met factor {aT:.1f}")
+    else:
+        st.warning(f"⚠️ Zonder TTS\nCurves liggen {aT:.1f}× uit elkaar")
+
+with demo_col1:
+    # Create realistic Maxwell-model data (TPU-like)
+    omega = np.logspace(-2, 2, 40)  # 0.01 to 100 rad/s
+    
+    # Physical parameters
+    G_N0 = 3e5      # Plateau modulus (Pa)
+    tau_ref = 1.0   # Relaxation time at ref temperature (s)
+    
+    # At REFERENCE temperature (black curves)
+    G_prime_ref = G_N0 * (omega * tau_ref)**2 / (1 + (omega * tau_ref)**2)
+    G_double_ref = G_N0 * (omega * tau_ref) / (1 + (omega * tau_ref)**2)
+    
+    # At TEST temperature (colored curves)
+    # Key insight: Lower T → Slower relaxation → Longer tau
+    tau_test = tau_ref * aT  # This is why curves shift!
+    G_prime_test = G_N0 * (omega * tau_test)**2 / (1 + (omega * tau_test)**2)
+    G_double_test = G_N0 * (omega * tau_test) / (1 + (omega * tau_test)**2)
+    
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(8, 5.5))
+    
+    # ALWAYS show reference temperature (black = anchor)
+    ax.loglog(omega, G_prime_ref, 'k-', linewidth=3, 
+              label=f"G' @ {ref_temp}°C (referentie)", zorder=3, alpha=0.8)
+    ax.loglog(omega, G_double_ref, 'k--', linewidth=2.5, 
+              label=f"G'' @ {ref_temp}°C (referentie)", zorder=3, alpha=0.6)
+    
+    if show_shifted:
+        # WITH TTS: Shift the frequency axis
+        omega_shifted = omega * aT  # THE TTS MAGIC!
         
-        # Fake data
-        G_ref = 1e5 * omega**0.5
-        G_test = 1e5 * (omega / aT)**0.5
-        G_test_shifted = 1e5 * (omega * aT)**0.5
+        ax.loglog(omega_shifted, G_prime_test, 'b-', linewidth=3,
+                  label=f"G' @ {test_temp}°C ✨ shifted", zorder=2, alpha=0.8)
+        ax.loglog(omega_shifted, G_double_test, 'b--', linewidth=2.5,
+                  label=f"G'' @ {test_temp}°C ✨ shifted", zorder=2, alpha=0.6)
         
-        ax.loglog(omega, G_ref, 'k-', linewidth=2, 
-                  label=tts.get("demo_legend_ref", "{ref_temp}°C (referentie)").format(ref_temp=ref_temp))
-        ax.loglog(omega, G_test, 'r--', alpha=0.5, 
-                  label=tts.get("demo_legend_test", "{test_temp}°C (ruw)").format(test_temp=test_temp))
-        ax.loglog(omega * aT, G_test, 'b-', linewidth=2, 
-                  label=tts.get("demo_legend_shifted", "{test_temp}°C (shifted)").format(test_temp=test_temp, at=aT))
+        # Success annotation
+        ax.text(0.05, 0.95, 
+                "✅ TTS toegepast!\nCurves vallen samen\n→ Master Curve!",
+                transform=ax.transAxes, fontsize=11, fontweight='bold',
+                verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.8, edgecolor='darkgreen', linewidth=2))
         
-        ax.set_xlabel(tts.get("demo_x_label", "ω (rad/s)"), fontsize=12, fontweight='bold')
-        ax.set_ylabel(tts.get("demo_y_label", "G' (willekeurige eenheden)"), fontsize=12, fontweight='bold')
-        ax.set_title(tts.get("demo_plot_title", "Effect van Shift Factor op Frequentie"), 
-                     fontsize=14, fontweight='bold')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
+        title = f"✅ MET TTS: Curves samengevoegd tot Master Curve"
         
-        st.pyplot(fig)
-        plt.close()
+    else:
+        # WITHOUT TTS: Show unshifted data (the problem!)
+        ax.loglog(omega, G_prime_test, 'r-', linewidth=3,
+                  label=f"G' @ {test_temp}°C (niet shifted)", zorder=2, alpha=0.8)
+        ax.loglog(omega, G_double_test, 'r--', linewidth=2.5,
+                  label=f"G'' @ {test_temp}°C (niet shifted)", zorder=2, alpha=0.6)
+        
+        # Problem annotation with arrow
+        ax.annotate('', xy=(0.3, 1.5e5), xytext=(3, 1.5e5),
+                   arrowprops=dict(arrowstyle='<->', color='red', lw=2))
+        ax.text(1, 2e5, f'Verschil = {aT:.1f}×', 
+                color='red', fontsize=10, fontweight='bold',
+                ha='center')
+        
+        ax.text(0.05, 0.95, 
+                f"❌ Zonder TTS!\n{test_temp}°C curve ligt LINKS\n(trager relaxatie bij lage T)",
+                transform=ax.transAxes, fontsize=11, fontweight='bold',
+                verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='lightsalmon', alpha=0.8, edgecolor='darkred', linewidth=2))
+        
+        title = f"❌ ZONDER TTS: Curves liggen {aT:.1f}× uit elkaar"
+    
+    # Styling
+    ax.set_xlabel("ω (rad/s)", fontsize=13, fontweight='bold')
+    ax.set_ylabel("G', G'' (Pa)", fontsize=13, fontweight='bold')
+    ax.set_title(title, fontsize=13, fontweight='bold', pad=15)
+    ax.legend(loc='lower right', fontsize=9, framealpha=0.95)
+    ax.grid(True, alpha=0.3, which='both', linestyle=':')
+    ax.set_ylim([1e3, 5e5])
+    ax.set_xlim([0.01, 100])
+    
+    st.pyplot(fig)
+    plt.close()
+    
+    # Educational explanation below plot
+    st.markdown("---")
+    if show_shifted:
+        st.success(f"""
+        **✅ TTS Effect Zichtbaar:**
+        - Rode curve is verschoven naar **rechts** met factor **{aT:.1f}×**
+        - Nu vallen beide temperaturen op **dezelfde curve**
+        - Dit bewijst: materiaal is **thermorheologisch simpel**!
+        - Je hebt nu een **Master Curve** gemaakt 🎯
+        """)
+    else:
+        st.error(f"""
+        **❌ Probleem Zonder TTS:**
+        - Bij {test_temp}°C (rood) ligt curve **{aT:.1f}× naar links**
+        - Lagere T → langzamere moleculen → curve verschuift naar lage ω
+        - Curves liggen **NIET op elkaar** → TTS is nodig!
+        - Schakel checkbox aan om het te corrigeren ☝️
+        """)
     
     st.divider()
     
