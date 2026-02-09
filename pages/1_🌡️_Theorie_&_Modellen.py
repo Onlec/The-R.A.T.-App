@@ -17,7 +17,7 @@ if 'lang' not in st.session_state:
 def load_translations(language):
     """Load unified translations from languages folder"""
     # Ga van pages/ naar root, dan naar languages/
-    lang_file = Path(__file__).parent.parent / 'languages' / f'{language}.json'
+    lang_file = Path(__file__).parent / 'languages' / f'{language}.json'
     
     with open(lang_file, 'r', encoding='utf-8') as f:
         return json.load(f)
@@ -40,12 +40,10 @@ st.set_page_config(
 
 # --- LANGUAGE SWITCHER IN SIDEBAR ---
 st.sidebar.markdown("---")
-st.sidebar.markdown("**Language / Taal**")
-
 col1, col2 = st.sidebar.columns(2)
 
 with col1:
-    if st.button("🇳🇱 NL", use_container_width=True, 
+    if st.button("🇳🇱 NL", use_container_width=True,
                  type="primary" if st.session_state.lang == 'nl' else "secondary"):
         if st.session_state.lang != 'nl':
             st.session_state.lang = 'nl'
