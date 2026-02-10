@@ -9,7 +9,6 @@ from io import BytesIO
 import json
 
 
-
 # --- LANGUAGE & TRANSLATIONS SETUP ---
 if 'lang' not in st.session_state:
     st.session_state.lang = 'NL'

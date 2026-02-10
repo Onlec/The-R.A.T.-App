@@ -19,7 +19,7 @@ def load_translations():
             return json.load(f)
     except FileNotFoundError:
         st.error("❌ Translation file 'translations.json' not found!")
-        return {"NL": {"main_app": {}}, "EN": {"main_app": {}}}
+        return {"NL": {"theory_models": {}}, "EN": {"theory_models": {}}}
 
 all_translations = load_translations()
 texts = all_translations.get(st.session_state.lang, all_translations["NL"]).get("theory_models", {})
