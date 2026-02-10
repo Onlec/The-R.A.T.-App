@@ -920,6 +920,7 @@ else:
 
 # --- FOOTER ---
 # --- LANGUAGE SWITCHER IN SIDEBAR ---
+st.markdown("---")
 col1, col2 = st.sidebar.columns(2)
 with col1:
     if st.button("🇳🇱 NL", use_container_width=True,
