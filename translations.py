@@ -10,7 +10,7 @@ def get_translations():
     """
     
     translations = {
-        "EN": {
+        "en": {
             # --- HEADER ---
             "title": "RheoApp - TPU Rheology Expert Tool",
             "caption": "💡 *Rheology is 50% measurement and 50% common sense.*",
@@ -334,7 +334,7 @@ It gives you at a glance the quality and reliability of your TTS analysis.
         },
         
         # --- NEDERLANDSE VERTALINGEN ---
-        "NL": {
+        "nl": {
             # --- HEADER ---
             "title": "RheoApp - TPU Rheologie Expert Tool",
             "caption": "💡 *Rheologie is 50% meten en 50% gezond verstand.*",
