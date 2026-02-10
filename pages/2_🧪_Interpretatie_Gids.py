@@ -7,26 +7,22 @@ from scipy.optimize import minimize, curve_fit
 from scipy.interpolate import interp1d, UnivariateSpline
 from io import BytesIO
 import json
-from pathlib import Path
 
-# --- LANGUAGE SETUP ---
-# 1. MOET EERST: Config
-st.set_page_config(page_title="Theorie & Modellen", layout="wide")
-
-# 2. Taal check
+# --- LANGUAGE & TRANSLATIONS SETUP ---
 if 'lang' not in st.session_state:
-    st.session_state.lang = 'nl'
+    st.session_state.lang = 'NL'
 
-# 3. Laad de data
-all_translations = get_translations() 
+@st.cache_data
+def load_translations():
+    try:
+        with open('translations.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        st.error("❌ Translation file 'translations.json' not found!")
+        return {"NL": {"main_app": {}}, "EN": {"main_app": {}}}
 
-# 4. Haal de specifieke teksten voor DEZE pagina op
-# We pakken de taal, en daaruit de sectie 'theory_models'
-try:
-    texts = all_translations[st.session_state.lang]['theory_models']
-except KeyError:
-    # Fallback als de taal of sectie niet bestaat
-    texts = all_translations['nl']['interpretation_guide']
+all_translations = load_translations()
+texts = all_translations.get(st.session_state.lang, all_translations["NL"]).get("interpretation_guide", {})
 
 
 # --- PAGE CONFIGURATION ---
