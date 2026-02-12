@@ -31,6 +31,21 @@ texts = all_translations.get(st.session_state.lang, all_translations["NL"]).get(
 st.title(texts.get("title", "RheoApp - TPU Rheology Expert Tool"))
 st.caption(texts.get("caption", ""))
 
+
+
+HORIZONTAL_RED = "assets/logo.png"
+ICON_RED = "assets/logo.png"
+HORIZONTAL_BLUE = "assets/logo.png"
+ICON_BLUE = "assets/logo.png"
+
+options = [HORIZONTAL_RED, ICON_RED, HORIZONTAL_BLUE, ICON_BLUE]
+sidebar_logo = st.selectbox("Sidebar logo", options, 0)
+main_body_logo = st.selectbox("Main body logo", options, 1)
+
+st.logo(sidebar_logo, icon_image=main_body_logo)
+st.sidebar.markdown("Hi!")
+
+
 with st.expander(texts.get("disclaimer_title", "⚠️ Disclaimer")):
     st.warning(texts.get("disclaimer_text", ""))
 
@@ -973,12 +988,4 @@ with col2:
             st.rerun()
 st.sidebar.markdown("---")
 st.set_page_config(page_title=texts.get("title", "RheoApp"), layout="wide")
-try:
-    st.sidebar.image("assets/logo.png", width=100)
-except:
-    pass  # Als logo niet gevonden wordt, gewoon doorgaanst.set_page_config(page_title=texts.get("title", "RheoApp"), layout="wide")
-try:
-    st.sidebar.image("assets/logo.png", width=100)
-except:
-    pass  # Als logo niet gevonden wordt, gewoon doorgaan
 st.sidebar.caption("The R.A.T. App - Rheology Analysis Tool - v1.0")
